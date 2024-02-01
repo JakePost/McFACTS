@@ -111,7 +111,7 @@ def ReadInputs_ini(fname='inputs/model_choice.txt'):
     #config.read(opts.use_ini)
     with open(fname) as stream:
         stream = StringIO("[top]\n" + stream.read())
-        config.readfp(stream)
+        config.read_file(stream)
 
     # convert to dict
     input_variables = dict(config.items('top'))
