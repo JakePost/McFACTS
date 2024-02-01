@@ -133,5 +133,5 @@ def setup_disk_nbh(M_nsc,nbh_nstar_ratio,mbh_mstar_ratio,r_nsc_out,nsc_index_out
     # Total number of BH in disk
     Nbh_disk_total = np.rint(Nbh_disk_volume * h_disk_average)
     #print("Nbh_disk_total",Nbh_disk_total)  
-    return np.int(Nbh_disk_total)
+    return np.int64(Nbh_disk_total)
 
