@@ -10,6 +10,7 @@ import scipy.interpolate
 
 import sys
 import argparse
+import shutil
 
 from inputs import ReadInputs
 
@@ -50,10 +51,15 @@ parser.add_argument("-w", "--work-directory", default=pathlib.Path().parent.reso
 parser.add_argument("--seed", type=int, default=None, help="Set the random seed. Randomly sets one if not passed. Default: None")
 opts = parser.parse_args()
 verbose = opts.verbose
+print(opts)
 
 # Get the parent path to this file and cd to that location for runtime
 runtime_directory = pathlib.Path(__file__).parent.resolve()
 os.chdir(runtime_directory)
+
+print('runtime directory')
+print(runtime_directory)
+#print(eeeeee)
 
 # Get the user-defined or default working directory / output location
 work_directory = pathlib.Path(opts.work_directory).resolve()
@@ -62,6 +68,9 @@ try: # check if working directory for output exists
 except FileNotFoundError as e:
     raise e
 print(f"Output will be saved to {work_directory}")
+print('work directory')
+print(work_directory)
+#print(eee)
 
 # set the seed for random number generation and reproducibility if not user-defined
 if opts.seed == None:
@@ -106,6 +115,8 @@ def main():
         iteration_zfilled_str = f"{iteration:>0{int(np.log10(n_iterations))+1}}"
         try: # Make subdir, exit if it exists to avoid clobbering.
             os.makedirs(os.path.join(work_directory, f"run{iteration_zfilled_str}"), exist_ok=False)
+            #copy model choices file
+            shutil.copyfile(os.path.join(runtime_directory, fname),os.path.join(work_directory, f"run{iteration_zfilled_str}/model_choice.txt"))
         except FileExistsError:
             raise FileExistsError(f"Directory \'run{iteration_zfilled_str}\' exists. Exiting so I don't delete your data.")
 
@@ -135,6 +146,9 @@ def main():
         #bh_initial_generations = np.ones((integer_nbh,),dtype=int)  
 
         bh_initial_generations = np.ones((n_bh,),dtype=int)
+
+        #save initial parameters to file
+        np.savetxt(os.path.join(work_directory, f"run{iteration_zfilled_str}/initialparams_output_bh_single.dat"),np.c_[bh_initial_locations.T,bh_initial_masses.T,bh_initial_spins.T,bh_initial_spin_angles.T,bh_initial_orb_ang_mom.T,bh_initial_orb_ecc.T],header="initial_locations initial_masses initial_spins initial_spin_angles initial_orb_ang_mom initial_orb_ecc")
 
         # assign functions to variable names (continuity issue)
         # Disk surface density (in kg/m^2) is a function of radius, where radius is in r_g
