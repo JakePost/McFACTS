@@ -3,3 +3,4 @@ __pycache__/
 .vscode/
 *.dat
 .DS_Store
+test_outputs/
