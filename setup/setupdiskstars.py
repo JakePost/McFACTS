@@ -98,15 +98,23 @@ def setup_disk_nbh(M_nsc,nbh_nstar_ratio,mbh_mstar_ratio,r_nsc_out,nsc_index_out
     # Return the integer number of BH in the AGN disk as calculated from NSC inputs assuming isotropic distribution of NSC orbits
     # To do: Calculate when R_disk_outer is not equal to the r_nsc_crit
     # To do: Calculate when disky NSC population of BH in plane/out of plane.
+
+    #first: switch ratios over
+    nstars_nbh_ratio = 1./nbh_nstar_ratio
+    mstars_mbh_ratio = 1./mbh_mstar_ratio
+
     # Housekeeping:
     # Convert outer disk radius in r_g to units of pc. 1r_g =1AU (M_smbh/10^8Msun) and 1pc =2e5AU =2e5 r_g(M/10^8Msun)^-1
     pc_dist = 2.e5*((mass_smbh/1.e8)**(-1.0))
     critical_disk_radius_pc = disk_outer_radius/pc_dist
-    #Total average mass of BH in NSC
-    M_bh_nsc = M_nsc * nbh_nstar_ratio * mbh_mstar_ratio
+    #Total average mass of ~BH~ stars in NSC
+    #M_bh_nsc = M_nsc * nbh_nstar_ratio * mbh_mstar_ratio
+    M_stars_nsc = M_nsc * nstars_nbh_ratio * mstars_mbh_ratio
+
     #print("M_bh_nsc",M_bh_nsc)
-    #Total number of BH in NSC
-    N_bh_nsc = M_bh_nsc / mbh_mstar_ratio
+    #Total number of stars in NSC
+    #N_bh_nsc = M_bh_nsc / mbh_mstar_ratio
+    N_stars_nsc = M_stars_nsc / mstars_mbh_ratio
     #print("N_bh_nsc",N_bh_nsc)
     #Relative volumes:
     #   of central 1 pc^3 to size of NSC
@@ -116,22 +124,22 @@ def setup_disk_nbh(M_nsc,nbh_nstar_ratio,mbh_mstar_ratio,r_nsc_out,nsc_index_out
     #print(relative_volumes_at1pc)
     #Total number of BH 
     #   at R<1pc (should be about 10^4 for Milky Way parameters; 3x10^7Msun, 5pc, r^-5/2 in outskirts)
-    N_bh_nsc_pc = N_bh_nsc * relative_volumes_at1pc * (1.0/r_nsc_out)**(-nsc_index_outer)
+    N_stars_nsc_pc = N_stars_nsc * relative_volumes_at1pc * (1.0/r_nsc_out)**(-nsc_index_outer)
     #   at r_nsc_crit
-    N_bh_nsc_crit = N_bh_nsc * relative_volumes_at_r_nsc_crit * (r_nsc_crit/r_nsc_out)**(-nsc_index_outer)
+    N_stars_nsc_crit = N_stars_nsc * relative_volumes_at_r_nsc_crit * (r_nsc_crit/r_nsc_out)**(-nsc_index_outer)
     #print("Normalized N_bh at 1pc",N_bh_nsc_pc)
     
     #Calculate Total number of BH in volume R < disk_outer_radius, assuming disk_outer_radius<=1pc.
     
     if critical_disk_radius_pc >= r_nsc_crit:
         relative_volumes_at_disk_outer_radius = (critical_disk_radius_pc/1.0)**(3.0)
-        Nbh_disk_volume = N_bh_nsc_pc * relative_volumes_at_disk_outer_radius * ((critical_disk_radius_pc/1.0)**(-nsc_index_outer))          
+        Nstars_disk_volume = N_stars_nsc_pc * relative_volumes_at_disk_outer_radius * ((critical_disk_radius_pc/1.0)**(-nsc_index_outer))          
     else:
         relative_volumes_at_disk_outer_radius = (critical_disk_radius_pc/r_nsc_crit)**(3.0)
-        Nbh_disk_volume = N_bh_nsc_crit * relative_volumes_at_disk_outer_radius * ((critical_disk_radius_pc/r_nsc_crit)**(-nsc_index_inner))
+        Nstars_disk_volume = N_stars_nsc_crit * relative_volumes_at_disk_outer_radius * ((critical_disk_radius_pc/r_nsc_crit)**(-nsc_index_inner))
      
     # Total number of BH in disk
-    Nbh_disk_total = np.rint(Nbh_disk_volume * h_disk_average)
+    Nstars_disk_total = np.rint(Nstars_disk_volume * h_disk_average)
     #print("Nbh_disk_total",Nbh_disk_total)  
-    return np.int64(Nbh_disk_total)
+    return np.int64(Nstars_disk_total)
 
