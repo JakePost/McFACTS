@@ -14,7 +14,7 @@ import shutil
 
 from inputs import ReadInputs
 
-from setup import setupdiskblackholes
+from setup import setupdiskblackholes,setupdiskstars
 from physics.migration.type1 import type1
 from physics.accretion.eddington import changebhmass
 from physics.accretion.torque import changebh
@@ -85,11 +85,13 @@ def main():
     # Setting up automated input parameters
     # see IOdocumentation.txt for documentation of variable names/types/etc.
 
-    fname = "inputs/model_choice.txt"
+    #fname = "inputs/model_choice_wstars.txt"
+    model_file_name = "model_choice_wstars.txt"
+    fname = "inputs/" + model_file_name
     if opts.use_ini:
         fname = opts.use_ini
-    mass_smbh, trap_radius, disk_outer_radius, alpha, n_iterations, mode_mbh_init, max_initial_bh_mass, \
-         mbh_powerlaw_index, mu_spin_distribution, sigma_spin_distribution, \
+    mass_smbh, trap_radius, disk_outer_radius, alpha, n_iterations, mode_mbh_init, mode_mstar_init, max_initial_bh_mass, max_initial_star_mass, \
+         mbh_powerlaw_index, mstar_powerlaw_index, mu_spin_distribution, sigma_spin_distribution, \
              spin_torque_condition, frac_Eddington_ratio, max_initial_eccentricity, orb_ecc_damping, \
                  timestep, number_of_timesteps, disk_model_radius_array, disk_inner_radius,\
                      disk_outer_radius, surface_density_array, aspect_ratio_array, retro, feedback, capture_time, outer_capture_radius, crit_ecc, \
@@ -116,7 +118,7 @@ def main():
         try: # Make subdir, exit if it exists to avoid clobbering.
             os.makedirs(os.path.join(work_directory, f"run{iteration_zfilled_str}"), exist_ok=False)
             #copy model choices file
-            shutil.copyfile(os.path.join(runtime_directory, fname),os.path.join(work_directory, f"run{iteration_zfilled_str}/model_choice.txt"))
+            shutil.copyfile(os.path.join(runtime_directory, fname),os.path.join(work_directory, f"run{iteration_zfilled_str}/{model_file_name}"))
         except FileExistsError:
             raise FileExistsError(f"Directory \'run{iteration_zfilled_str}\' exists. Exiting so I don't delete your data.")
 
@@ -128,6 +130,8 @@ def main():
 
         #Set up number of BH in disk
         n_bh = setupdiskblackholes.setup_disk_nbh(M_nsc,nbh_nstar_ratio,mbh_mstar_ratio,r_nsc_out,nsc_index_outer,mass_smbh,disk_outer_radius,h_disk_average,r_nsc_crit,nsc_index_inner)
+        #Set up number of stars in disk
+        n_star = setupdiskstars.setup_disk_nstar(M_nsc,nbh_nstar_ratio,mbh_mstar_ratio,r_nsc_out,nsc_index_outer,mass_smbh,disk_outer_radius,h_disk_average,r_nsc_crit,nsc_index_inner)
 
         # generate initial BH parameter arrays
         print("Generate initial BH parameter arrays")
@@ -141,14 +145,31 @@ def main():
         else:
             bh_initial_orb_ecc = setupdiskblackholes.setup_disk_blackholes_circularized(rng,n_bh,crit_ecc)
 
+        # generate initial star parameter arrays
+        print("Generate initial star parameter arrays")
+        star_initial_locations = setupdiskstars.setup_disk_stars_location(rng, n_star, disk_outer_radius)
+        star_initial_masses = setupdiskstars.setup_disk_stars_masses(rng, n_star, mode_mstar_init, max_initial_star_mass, mstar_powerlaw_index)
+        star_initial_spins = setupdiskstars.setup_disk_stars_spins(rng, n_star, mu_spin_distribution, sigma_spin_distribution)
+        star_initial_spin_angles = setupdiskstars.setup_disk_stars_spin_angles(rng, n_star, star_initial_spins)
+        star_initial_orb_ang_mom = setupdiskstars.setup_disk_stars_orb_ang_mom(rng, n_star)
+        if orb_ecc_damping == 1:
+            star_initial_orb_ecc = setupdiskstars.setup_disk_stars_eccentricity_uniform(rng, n_star)
+        else:
+            star_initial_orb_ecc = setupdiskstars.setup_disk_stars_circularized(rng,n_bh,crit_ecc)
+
         bh_initial_orb_incl = setupdiskblackholes.setup_disk_blackholes_inclination(rng, n_bh)
+        star_initial_orb_incl = setupdiskstars.setup_disk_stars_inclination(rng, n_bh)
         #print("orb ecc",bh_initial_orb_ecc)
         #bh_initial_generations = np.ones((integer_nbh,),dtype=int)  
 
         bh_initial_generations = np.ones((n_bh,),dtype=int)
+        star_initial_generations = np.ones((n_star,),dtype=int)
 
         #save initial parameters to file
         np.savetxt(os.path.join(work_directory, f"run{iteration_zfilled_str}/initialparams_output_bh_single.dat"),np.c_[bh_initial_locations.T,bh_initial_masses.T,bh_initial_spins.T,bh_initial_spin_angles.T,bh_initial_orb_ang_mom.T,bh_initial_orb_ecc.T],header="initial_locations initial_masses initial_spins initial_spin_angles initial_orb_ang_mom initial_orb_ecc")
+        np.savetxt(os.path.join(work_directory, f"run{iteration_zfilled_str}/initialparams_output_star_single.dat"),np.c_[star_initial_locations.T,star_initial_masses.T,star_initial_spins.T,star_initial_spin_angles.T,star_initial_orb_ang_mom.T,star_initial_orb_ecc.T],header="initial_locations initial_masses initial_spins initial_spin_angles initial_orb_ang_mom initial_orb_ecc")
+
+
 
         # assign functions to variable names (continuity issue)
         # Disk surface density (in kg/m^2) is a function of radius, where radius is in r_g
@@ -159,24 +180,42 @@ def main():
         initial_time = 0.0
         final_time = timestep*number_of_timesteps
 
+
         # Find prograde BH orbiters. Identify BH with orb. ang mom =+1
         bh_orb_ang_mom_indices = np.array(bh_initial_orb_ang_mom)
-        prograde_orb_ang_mom_indices = np.where(bh_orb_ang_mom_indices == 1)
+        bh_prograde_orb_ang_mom_indices = np.where(bh_orb_ang_mom_indices == 1)
         #retrograde_orb_ang_mom_indices = np.where(bh_orb_ang_mom_indices == -1)
-        prograde_bh_locations = bh_initial_locations[prograde_orb_ang_mom_indices]
+        prograde_bh_locations = bh_initial_locations[bh_prograde_orb_ang_mom_indices]
         sorted_prograde_bh_locations = np.sort(prograde_bh_locations)
         print("Sorted prograde BH locations:", len(sorted_prograde_bh_locations), len(prograde_bh_locations))
         print(sorted_prograde_bh_locations)
         print(prograde_bh_locations)
         #print("Aspect ratio",aspect_ratio_func(prograde_bh_locations))
         #Use masses of prograde BH only
-        prograde_bh_masses = bh_initial_masses[prograde_orb_ang_mom_indices]
+        prograde_bh_masses = bh_initial_masses[bh_prograde_orb_ang_mom_indices]
         print("Prograde BH initial masses", len(prograde_bh_masses))
+
+        # Find prograde star orbiters. Identify star with orb. ang mom =+1
+        star_orb_ang_mom_indices = np.array(star_initial_orb_ang_mom)
+        star_prograde_orb_ang_mom_indices = np.where(star_orb_ang_mom_indices == 1)
+        #retrograde_orb_ang_mom_indices = np.where(bh_orb_ang_mom_indices == -1)
+        prograde_star_locations = bh_initial_locations[star_prograde_orb_ang_mom_indices]
+        sorted_prograde_star_locations = np.sort(prograde_star_locations)
+        print("Sorted prograde star locations:", len(sorted_prograde_star_locations), len(prograde_star_locations))
+        print(sorted_prograde_star_locations)
+        print(prograde_star_locations)
+        #print("Aspect ratio",aspect_ratio_func(prograde_bh_locations))
+        #Use masses of prograde BH only
+        prograde_star_masses = star_initial_masses[star_prograde_orb_ang_mom_indices]
+        print("Prograde star initial masses", len(prograde_star_masses))
+
 
 
         # Orbital eccentricities
-        prograde_bh_orb_ecc = bh_initial_orb_ecc[prograde_orb_ang_mom_indices]
-        print("Prograde orbital eccentricities",prograde_bh_orb_ecc)
+        prograde_bh_orb_ecc = bh_initial_orb_ecc[bh_prograde_orb_ang_mom_indices]
+        print("BH prograde orbital eccentricities",prograde_bh_orb_ecc)
+        prograde_star_orb_ecc = star_initial_orb_ecc[star_prograde_orb_ang_mom_indices]
+        print("Star prograde orbital eccentricities",prograde_star_orb_ecc)
         # Find which orbital eccentricities are <=h the disk aspect ratio and set up a mask
         #prograde_bh_crit_ecc = np.ma.masked_where(prograde_bh_orb_ecc >= aspect_ratio_func(prograde_bh_locations),prograde_bh_orb_ecc)
         # Orb eccentricities <2h (simple exponential damping): mask entries > 2*aspect_ratio
@@ -203,8 +242,10 @@ def main():
         
 
         #Orbital inclinations
-        prograde_bh_orb_incl = bh_initial_orb_incl[prograde_orb_ang_mom_indices]
-        print("Prograde orbital inclinations")
+        prograde_bh_orb_incl = bh_initial_orb_incl[bh_prograde_orb_ang_mom_indices]
+        print("BH prograde orbital inclinations")
+        prograde_star_orb_incl = star_initial_orb_incl[star_prograde_orb_ang_mom_indices]
+        print("Star prograde orbital inclinations")
 
         # Housekeeping: Fractional rate of mass growth per year at 
         # the Eddington rate(2.3e-8/yr)
@@ -215,9 +256,13 @@ def main():
         # e.g 0.02 rad=1deg
         spin_minimum_resolution = 0.02
         #Torque prograde orbiting BH only
-        prograde_bh_spins = bh_initial_spins[prograde_orb_ang_mom_indices]
-        prograde_bh_spin_angles = bh_initial_spin_angles[prograde_orb_ang_mom_indices]
-        prograde_bh_generations = bh_initial_generations[prograde_orb_ang_mom_indices]
+        prograde_bh_spins = bh_initial_spins[bh_prograde_orb_ang_mom_indices]
+        prograde_bh_spin_angles = bh_initial_spin_angles[bh_prograde_orb_ang_mom_indices]
+        prograde_bh_generations = bh_initial_generations[bh_prograde_orb_ang_mom_indices]
+        #for stars
+        prograde_star_spins = star_initial_spins[star_prograde_orb_ang_mom_indices]
+        prograde_star_spin_angles = star_initial_spin_angles[star_prograde_orb_ang_mom_indices]
+        prograde_star_generations = star_initial_generations[star_prograde_orb_ang_mom_indices]
 
         # Housekeeping:
         # Number of binary properties that we want to record (e.g. R1,R2,M1,M2,a1,a2,theta1,theta2,sep,com,t_gw,merger_flag,time of merger, gen_1,gen_2, bin_ang_mom, bin_ecc, bin_incl)o
@@ -231,24 +276,28 @@ def main():
         # Set up empty initial Binary array
         # Initially all zeros, then add binaries plus details as appropriate
         binary_bh_array = np.zeros((integer_nbinprop,integer_test_bin_number))
+        binary_star_array = np.zeros((integer_nbinprop,integer_test_bin_number))
         # Set up normalization for t_gw (SF: I do not like this way of handling, flag for update)
         norm_t_gw = tgw.normalize_tgw(mass_smbh)
         print("Scale of t_gw (yrs)=", norm_t_gw)
     
         # Set up merger array (identical to binary array)
-        merger_array = np.zeros((integer_nbinprop,integer_test_bin_number))
+        merger_array_bh = np.zeros((integer_nbinprop,integer_test_bin_number))
+        merger_array_star = np.zeros((integer_nbinprop,integer_test_bin_number))
     
         # Set up output array (mergerfile)
         nprop_mergers=len(mergerfile.names_rec)
         integer_nprop_merge=int(nprop_mergers)
         merged_bh_array = np.zeros((integer_nprop_merge,integer_test_bin_number))
+        merged_star_array = np.zeros((integer_nprop_merge,integer_test_bin_number))
 
         # Start Loop of Timesteps
         print("Start Loop!")
         time_passed = initial_time
         print("Initial Time(yrs) = ",time_passed)
 
-        n_mergers_so_far = 0
+        n_bh_mergers_so_far = 0
+        n_star_mergers_so_far = 0
         n_timestep_index = 0
         n_merger_limit =1e4
 
@@ -256,15 +305,20 @@ def main():
             # Record 
             if not(opts.no_snapshots):
                 n_bh_out_size = len(prograde_bh_locations)
+                n_star_out_size = len(prograde_star_locations)
 
                 #svals = list(map( lambda x: x.shape,[prograde_bh_locations, prograde_bh_masses, prograde_bh_spins, prograde_bh_spin_angles, prograde_bh_orb_ecc, prograde_bh_generations[:n_bh_out_size]]))
                 # Single output:  does work
                 np.savetxt(os.path.join(work_directory, f"run{iteration_zfilled_str}/output_bh_single_{n_timestep_index}.dat"), np.c_[prograde_bh_locations.T, prograde_bh_masses.T, prograde_bh_spins.T, prograde_bh_spin_angles.T, prograde_bh_orb_ecc.T, prograde_bh_generations[:n_bh_out_size].T], header="r_bh m a theta ecc gen")
+                np.savetxt(os.path.join(work_directory, f"run{iteration_zfilled_str}/output_star_single_{n_timestep_index}.dat"), np.c_[prograde_star_locations.T, prograde_star_masses.T, prograde_star_spins.T, prograde_star_spin_angles.T, prograde_star_orb_ecc.T, prograde_star_generations[:n_star_out_size].T], header="r_star m a theta ecc gen")
                 # np.savetxt(os.path.join(work_directory, "output_bh_single_{}.dat".format(n_timestep_index)), np.c_[prograde_bh_locations.T, prograde_bh_masses.T, prograde_bh_spins.T, prograde_bh_spin_angles.T, prograde_bh_orb_ecc.T, prograde_bh_generations[:n_bh_out_size].T], header="r_bh m a theta ecc gen")
                 # Binary output: does not work
-                np.savetxt(os.path.join(work_directory, f"run{iteration_zfilled_str}/output_bh_binary_{n_timestep_index}.dat"), binary_bh_array[:,:n_mergers_so_far+1].T, header=binary_field_names)
+                np.savetxt(os.path.join(work_directory, f"run{iteration_zfilled_str}/output_bh_binary_{n_timestep_index}.dat"), binary_bh_array[:,:n_bh_mergers_so_far+1].T, header=binary_field_names)
+                np.savetxt(os.path.join(work_directory, f"run{iteration_zfilled_str}/output_star_binary_{n_timestep_index}.dat"), binary_star_array[:,:n_star_mergers_so_far+1].T, header=binary_field_names)
                 # np.savetxt(os.path.join(work_directory, "output_bh_binary_{}.dat".format(n_timestep_index)), binary_bh_array[:,:n_mergers_so_far+1].T, header=binary_field_names)
                 n_timestep_index +=1
+
+            #_____________________________________CHECKPOINT__________________________________
 
             #Order of operations: 
             # No migration until orbital eccentricity damped to e_crit (To do: actually should be h)
