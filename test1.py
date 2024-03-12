@@ -276,28 +276,24 @@ def main():
         # Set up empty initial Binary array
         # Initially all zeros, then add binaries plus details as appropriate
         binary_bh_array = np.zeros((integer_nbinprop,integer_test_bin_number))
-        binary_star_array = np.zeros((integer_nbinprop,integer_test_bin_number))
         # Set up normalization for t_gw (SF: I do not like this way of handling, flag for update)
         norm_t_gw = tgw.normalize_tgw(mass_smbh)
         print("Scale of t_gw (yrs)=", norm_t_gw)
     
         # Set up merger array (identical to binary array)
-        merger_array_bh = np.zeros((integer_nbinprop,integer_test_bin_number))
-        merger_array_star = np.zeros((integer_nbinprop,integer_test_bin_number))
+        merger_array = np.zeros((integer_nbinprop,integer_test_bin_number))
     
         # Set up output array (mergerfile)
         nprop_mergers=len(mergerfile.names_rec)
         integer_nprop_merge=int(nprop_mergers)
         merged_bh_array = np.zeros((integer_nprop_merge,integer_test_bin_number))
-        merged_star_array = np.zeros((integer_nprop_merge,integer_test_bin_number))
 
         # Start Loop of Timesteps
         print("Start Loop!")
         time_passed = initial_time
         print("Initial Time(yrs) = ",time_passed)
 
-        n_bh_mergers_so_far = 0
-        n_star_mergers_so_far = 0
+        n_mergers_so_far = 0
         n_timestep_index = 0
         n_merger_limit =1e4
 
@@ -305,20 +301,15 @@ def main():
             # Record 
             if not(opts.no_snapshots):
                 n_bh_out_size = len(prograde_bh_locations)
-                n_star_out_size = len(prograde_star_locations)
 
                 #svals = list(map( lambda x: x.shape,[prograde_bh_locations, prograde_bh_masses, prograde_bh_spins, prograde_bh_spin_angles, prograde_bh_orb_ecc, prograde_bh_generations[:n_bh_out_size]]))
                 # Single output:  does work
                 np.savetxt(os.path.join(work_directory, f"run{iteration_zfilled_str}/output_bh_single_{n_timestep_index}.dat"), np.c_[prograde_bh_locations.T, prograde_bh_masses.T, prograde_bh_spins.T, prograde_bh_spin_angles.T, prograde_bh_orb_ecc.T, prograde_bh_generations[:n_bh_out_size].T], header="r_bh m a theta ecc gen")
-                np.savetxt(os.path.join(work_directory, f"run{iteration_zfilled_str}/output_star_single_{n_timestep_index}.dat"), np.c_[prograde_star_locations.T, prograde_star_masses.T, prograde_star_spins.T, prograde_star_spin_angles.T, prograde_star_orb_ecc.T, prograde_star_generations[:n_star_out_size].T], header="r_star m a theta ecc gen")
                 # np.savetxt(os.path.join(work_directory, "output_bh_single_{}.dat".format(n_timestep_index)), np.c_[prograde_bh_locations.T, prograde_bh_masses.T, prograde_bh_spins.T, prograde_bh_spin_angles.T, prograde_bh_orb_ecc.T, prograde_bh_generations[:n_bh_out_size].T], header="r_bh m a theta ecc gen")
                 # Binary output: does not work
-                np.savetxt(os.path.join(work_directory, f"run{iteration_zfilled_str}/output_bh_binary_{n_timestep_index}.dat"), binary_bh_array[:,:n_bh_mergers_so_far+1].T, header=binary_field_names)
-                np.savetxt(os.path.join(work_directory, f"run{iteration_zfilled_str}/output_star_binary_{n_timestep_index}.dat"), binary_star_array[:,:n_star_mergers_so_far+1].T, header=binary_field_names)
+                np.savetxt(os.path.join(work_directory, f"run{iteration_zfilled_str}/output_bh_binary_{n_timestep_index}.dat"), binary_bh_array[:,:n_mergers_so_far+1].T, header=binary_field_names)
                 # np.savetxt(os.path.join(work_directory, "output_bh_binary_{}.dat".format(n_timestep_index)), binary_bh_array[:,:n_mergers_so_far+1].T, header=binary_field_names)
                 n_timestep_index +=1
-
-            #_____________________________________CHECKPOINT__________________________________
 
             #Order of operations: 
             # No migration until orbital eccentricity damped to e_crit (To do: actually should be h)
