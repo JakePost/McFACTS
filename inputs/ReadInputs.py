@@ -36,11 +36,20 @@ def ReadInputs_ini(fname='inputs/model_choice.txt'):
     mode_mbh_init : float
         Initial mass distribution for stellar bh is assumed to be Pareto
         with high mass cutoff--mode of initial mass dist (M_sun)
+    mode_mstar_init : float
+        Initial mass distribution for stars is assumed to be Pareto with high mass
+        cutoff--mode of initial mass dist (M_sun)
     max_initial_bh_mass : float
         Initial mass distribution for stellar bh is assumed to be Pareto
         with high mass cutoff--mass of cutoff (M_sun)
+    max_initial_star_mass : float
+        Initial mass distribution for stars is assumed to be Pareto
+        with high mass cutoff--mass of cutoff (M_sun)
     mbh_powerlaw_index : float
         Initial mass distribution for stellar bh is assumed to be Pareto
+        with high mass cutoff--powerlaw index for Pareto dist
+    mstar_powerlaw_index : float
+        Initial mass distribution for stars is assumed to be Pareto
         with high mass cutoff--powerlaw index for Pareto dist
     mu_spin_distribution : float
         Initial spin distribution for stellar bh is assumed to be Gaussian
@@ -111,7 +120,7 @@ def ReadInputs_ini(fname='inputs/model_choice.txt'):
     #config.read(opts.use_ini)
     with open(fname) as stream:
         stream = StringIO("[top]\n" + stream.read())
-        config.readfp(stream)
+        config.read_file(stream)
 
     # convert to dict
     input_variables = dict(config.items('top'))
@@ -133,8 +142,11 @@ def ReadInputs_ini(fname='inputs/model_choice.txt'):
     alpha = float(input_variables['alpha'])
     n_iterations = int(input_variables['n_iterations'])
     mode_mbh_init = float(input_variables['mode_mbh_init'])
+    mode_mstar_init = float(input_variables['mode_mstar_init'])
     max_initial_bh_mass = float(input_variables['max_initial_bh_mass'])
+    max_initial_star_mass = float(input_variables['max_initial_star_mass'])
     mbh_powerlaw_index = float(input_variables['mbh_powerlaw_index'])
+    mstar_powerlaw_index = float(input_variables['mstar_powerlaw_index'])
     mu_spin_distribution = float(input_variables['mu_spin_distribution'])
     sigma_spin_distribution = float(input_variables['sigma_spin_distribution'])
     spin_torque_condition = float(input_variables['spin_torque_condition'])
@@ -234,8 +246,8 @@ def ReadInputs_ini(fname='inputs/model_choice.txt'):
 
     print("Sending variables back")
 
-    return mass_smbh, trap_radius, disk_outer_radius, alpha, n_iterations, mode_mbh_init, max_initial_bh_mass, \
-        mbh_powerlaw_index, mu_spin_distribution, sigma_spin_distribution, \
+    return mass_smbh, trap_radius, disk_outer_radius, alpha, n_iterations, mode_mbh_init, mode_mstar_init, max_initial_bh_mass, max_initial_star_mass, \
+        mbh_powerlaw_index, mstar_powerlaw_index, mu_spin_distribution, sigma_spin_distribution, \
             spin_torque_condition, frac_Eddington_ratio, max_initial_eccentricity, orb_ecc_damping, \
                 timestep, number_of_timesteps, disk_model_radius_array, disk_inner_radius,\
                     disk_outer_radius, surface_density_array, aspect_ratio_array, retro, feedback, capture_time, outer_capture_radius, crit_ecc, \
