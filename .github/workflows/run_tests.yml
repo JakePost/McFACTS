@@ -36,7 +36,7 @@ jobs:
           activate-environment: mcfacts-dev
 
       - name: Setup JuliaUp
-        uses: julia-actions/install-juliaup@v2
+        uses: julia-actions/install-juliaup@v2.2.1
         with:
           channel: '1.11.0'
 
@@ -45,7 +45,7 @@ jobs:
           conda activate mcfacts-dev
           julia -e '
             using Pkg
-            Pkg.add("PostNewtonian", version="0.10.5")
+            Pkg.add("PostNewtonian")
             Pkg.add(name="FastDifferentiation", version="0.4.2")
             Pkg.pin("FastDifferentiation")
             Pkg.precompile()
